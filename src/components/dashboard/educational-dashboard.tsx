@@ -154,6 +154,13 @@ type InternetGapRow = {
   sinInternet: number;
 };
 
+type AttendanceGapRow = {
+  location: StudentRecord["Ubicacion_Escuela"];
+  label: string;
+  asistencia: number;
+  inasistencia: number;
+};
+
 type InternetSegmentShapeProps = {
   fill?: string;
   height?: number;
@@ -226,6 +233,42 @@ function InternetSegmentShape({
         ? ([10, 0, 0, 10] as [number, number, number, number])
         : ([10, 10, 10, 10] as [number, number, number, number])
       : payload.conInternet > 0
+        ? ([0, 10, 10, 0] as [number, number, number, number])
+        : ([10, 10, 10, 10] as [number, number, number, number]);
+
+  return <path d={roundedRectPath(x, y, width, height, radius)} fill={fill} />;
+}
+
+type AttendanceSegmentShapeProps = {
+  fill?: string;
+  height?: number;
+  payload?: AttendanceGapRow;
+  width?: number;
+  x?: number;
+  y?: number;
+};
+
+function AttendanceSegmentShape({
+  fill = "#2d88ff",
+  height = 0,
+  payload,
+  width = 0,
+  x = 0,
+  y = 0,
+  variant,
+}: AttendanceSegmentShapeProps & {
+  variant: "asistencia" | "inasistencia";
+}) {
+  if (!payload || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  const radius =
+    variant === "asistencia"
+      ? payload.inasistencia > 0
+        ? ([10, 0, 0, 10] as [number, number, number, number])
+        : ([10, 10, 10, 10] as [number, number, number, number])
+      : payload.asistencia > 0
         ? ([0, 10, 10, 0] as [number, number, number, number])
         : ([10, 10, 10, 10] as [number, number, number, number]);
 
@@ -581,7 +624,7 @@ export function EducationalDashboard({
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
-  const attendanceGap = locationOrder
+  const attendanceGap: AttendanceGapRow[] = locationOrder
     .map((location) => {
       const locationRecords = filteredRecords.filter(
         (record) => record.Ubicacion_Escuela === location
@@ -602,7 +645,6 @@ export function EducationalDashboard({
             average(locationRecords.map((record) => record.Asistencia))
           ).toFixed(2)
         ),
-        fill: location === "Urbana" ? palette.secondary : palette.graySoft,
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -1435,39 +1477,72 @@ export function EducationalDashboard({
                 </div>
               </div>
               <ChartContainer
-                className="h-[280px] w-full"
+                className="h-[240px] w-full"
                 config={attendanceChartConfig}
               >
-                <BarChart data={attendanceGap} margin={{ left: 12, right: 12 }}>
-                  <CartesianGrid vertical={false} />
+                <BarChart
+                  data={attendanceGap}
+                  layout="vertical"
+                  margin={{ left: 12, right: 12, top: 8, bottom: 8 }}
+                >
+                  <CartesianGrid horizontal={false} />
                   <XAxis
-                    axisLine={false}
-                    dataKey="label"
-                    tickLine={false}
-                    tickMargin={12}
-                  />
-                  <YAxis
                     axisLine={false}
                     domain={[0, 100]}
                     tickFormatter={(value) => `${Number(value)} %`}
                     tickLine={false}
                     tickMargin={12}
+                    type="number"
+                  />
+                  <YAxis
+                    axisLine={false}
+                    dataKey="label"
+                    tickLine={false}
+                    tickMargin={12}
+                    type="category"
+                    width={88}
                   />
                   <ChartTooltip
                     content={<ChartTooltipContent labelKey="label" />}
                   />
                   <Bar
+                    barSize={30}
                     dataKey="asistencia"
                     fill={palette.secondary}
-                    maxBarSize={42}
-                    radius={[12, 12, 0, 0]}
-                  />
+                    shape={(props) => (
+                      <AttendanceSegmentShape
+                        {...props}
+                        variant="asistencia"
+                      />
+                    )}
+                    stackId="attendance"
+                  >
+                    {attendanceGap.map((item) => (
+                      <Cell
+                        key={`${item.location}-asistencia`}
+                        fill={palette.secondary}
+                      />
+                    ))}
+                  </Bar>
                   <Bar
+                    barSize={30}
                     dataKey="inasistencia"
                     fill={palette.graySoft}
-                    maxBarSize={42}
-                    radius={[12, 12, 0, 0]}
-                  />
+                    shape={(props) => (
+                      <AttendanceSegmentShape
+                        {...props}
+                        variant="inasistencia"
+                      />
+                    )}
+                    stackId="attendance"
+                  >
+                    {attendanceGap.map((item) => (
+                      <Cell
+                        key={`${item.location}-inasistencia`}
+                        fill={palette.graySoft}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ChartContainer>
               <p className={bodyTextClass}>
